@@ -1,0 +1,317 @@
+---
+title: "DS4420: Final Project - Time Series"
+author: "Caroline Han"
+date: "2025-04-09"
+output: html_document
+---
+# Data Preprocessing and Investigation
+```{r}
+# import packages
+library(dplyr)
+library(ggplot2)
+library(stats)
+library(TTR)
+library(scales)
+
+# load and clean data 
+stack_full <- read.csv('TotalQuestions.csv')
+stack_full$Month <- as.Date(stack_full$Month)
+stack_full <- stack_full %>% arrange(Month)
+
+# create total # of questions column
+stack_full$total <- rowSums(stack_full[, sapply(stack_full, is.numeric)], na.rm = TRUE)
+head(stack_full)
+```
+```{r}
+# visualize the time series
+ggplot(stack_full, aes(x = Month, y = total)) +
+  geom_line() +
+  geom_vline(aes(xintercept = as.Date("2022-11-01"), color = "ChatGPT Release")) + 
+  ggtitle('# Total Questions over Stack Overflow History') +
+  xlab('Date') +
+  ylab('# Total Questions') +
+  scale_color_manual(name = "Event", values = c("ChatGPT Release" = "red")) + 
+  scale_y_continuous(labels = label_number(accuracy = 1)) +  
+  theme_minimal()
+```
+```{r}
+# extract feature  to predict and drop any NAs
+stack <- stack_full[, c("Month", "total")]
+stack <- na.omit(stack)  
+head(stack)
+```
+```{r}
+# check decompositions
+decomp <- decompose(ts(stack$total, frequency = 10), type = "multiplicative")
+plot(decomp)
+```
+```{r}
+# Lag and ACF Plots
+# create lag features
+for (i in 1:10) {
+  stack[, paste0('Lag_', i)] <- c(rep(NA, i), head(stack$total, -i))
+}
+stack <- na.omit(stack)
+
+# ACF
+acf(stack$total, main = "Total Questions ACF Plot")
+
+# PACF
+pacf(stack$total, main = "Total Questions PACF Plot")
+```
+```{r}
+# Split into training and test sets
+train_size <- round(0.8 * nrow(stack))
+train_data <- stack[1:train_size,]
+test_data <- stack[(train_size + 1):nrow(stack),]
+
+# Define y_train and y_test
+y_train <- train_data$total
+y_test <- test_data$total
+
+# Confirm that Lag 11 still has a large correlation
+cor(stack$total, lag(stack$total, n = 11), use = "complete.obs")
+```
+# AR(p) Model for Total Questions
+```{r}
+# fit AR(11) model
+ar_model <- stats::ar(y_train, order.max = 11, aic = FALSE, method = "ols", demean = FALSE)  # AR(1)
+ar_model$ar
+ar_roots <- polyroot(c(1, -ar_model$ar))
+Mod(ar_roots)
+```
+```{r}
+# Get predictions
+ar_pred <- predict(ar_model, n.ahead = length(y_test))
+
+# Convert AR predictions to a data frame
+pred_data <- data.frame(Month = test_data$Month, pred_total = ar_pred$pred)
+range <- range(c(test_data$total, ar_pred$pred))
+# Plot actual vs predicted from AR model
+plot(test_data$Month, test_data$total, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "Total Questions", main = "AR(11) Model Predictions", ylim = range)
+lines(pred_data$Month, pred_data$pred_total, col = "red", lwd = 2, lty = 2)
+legend("bottomleft", legend = c("Actual Total Questions", "AR(11) Predicted Total Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+
+```
+```{r}
+# Mean Absolute Error (MAE)
+y_pred <- pred_data$pred_total
+
+mae <- mean(abs(y_test - y_pred))
+
+# Root Mean Squared Error (RMSE)
+rmse <- sqrt(mean((y_test - y_pred)^2))
+
+cat(sprintf("Mean Absolute Error: %.2f\n", mae))
+cat(sprintf("Root Mean Squared Error: %.2f\n", rmse))
+```
+```{r}
+# Compute residuals
+ar_residuals <- ar_model$resid
+
+plot(ar_residuals, type = "l", main = "Residuals Over Time", ylab = "Residuals", xlab = "Time")
+abline(h = 0, col = "red", lty = 2)
+
+hist(ar_residuals, breaks = 20, main = "Histogram of Residuals", xlab = "Residuals", col = "gray", probability = T)
+lines(density(ar_residuals, na.rm = T), col = "blue", lwd = 2)
+
+qqnorm(ar_residuals, main = "Q-Q Plot of Residuals")
+qqline(ar_residuals, col = "red", lwd = 2)
+
+acf(ar_residuals, na.action = na.pass, main = "Autocorrelation of Residuals")
+
+```
+
+# ARIMA model for Total Questions
+```{r}
+# fit ARIMA model with p = q = 11
+arm_model <- arima(y_train, order = c(11, 0, 11))
+summary(arm_model)
+# AR roots
+Mod(polyroot(c(1, -arm_model$model$phi)))
+# MA roots
+Mod(polyroot(c(1, arm_model$model$theta)))
+```
+```{r}
+# get predictions
+arm_pred <- predict(arm_model, n.ahead = length(y_test))
+
+# Convert AR predictions to a data frame
+arm_pred_data <- data.frame(Month = test_data$Month, pred_total = arm_pred$pred)
+range <- range(c(test_data$total, arm_pred$pred))
+
+# Plot actual vs predicted from AR model
+plot(test_data$Month, test_data$total, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "Total Questions", main = "ARIMA(11) Model Predictions", ylim = range)
+lines(arm_pred_data$Month, arm_pred_data$pred_total, col = "red", lwd = 2, lty = 2)
+legend("bottomleft", legend = c("Actual Total Questions", "ARIMA(11) Predicted Total Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+```
+```{r}
+# Mean Absolute Error (MAE)
+y_pred <- arm_pred_data$pred_total
+
+mae <- mean(abs(y_test - y_pred))
+
+# Root Mean Squared Error (RMSE)
+rmse <- sqrt(mean((y_test - y_pred)^2))
+
+cat(sprintf("Mean Absolute Error: %.2f\n", mae))
+cat(sprintf("Root Mean Squared Error: %.2f\n", rmse))
+```
+```{r}
+# Compute residuals
+arm_residuals <- arm_model$resid
+
+plot(arm_residuals, type = "l", main = "Residuals Over Time", ylab = "Residuals", xlab = "Time")
+abline(h = 0, col = "red", lty = 2)
+
+hist(arm_residuals, breaks = 20, main = "Histogram of Residuals", xlab = "Residuals", col = "gray", probability = T)
+lines(density(arm_residuals, na.rm = T), col = "blue", lwd = 2)
+
+qqnorm(arm_residuals, main = "Q-Q Plot of Residuals")
+qqline(arm_residuals, col = "red", lwd = 2)
+
+acf(arm_residuals, na.action = na.pass, main = "Autocorrelation of Residuals")
+```
+
+# ARIMA model for Python Questions
+```{r}
+# extract feature to predict and drop any NAs
+py <- stack_full[, c("Month", "Python")]
+py <- na.omit(py)  
+
+# create lag features
+for (i in 1:10) {
+  py[, paste0('Lag_', i)] <- c(rep(NA, i), head(py$Python, -i))
+}
+py <- na.omit(py)
+
+# Split into training and test sets
+train_size <- round(0.8 * nrow(py))
+train_data <- py[1:train_size,]
+test_data <- py[(train_size + 1):nrow(py),]
+
+# Define y_train and y_test
+y_train <- train_data$Python
+y_test <- test_data$Python
+
+# fit ARIMA model with p = q = 11
+arm_model <- arima(y_train, order = c(11, 0, 11))
+
+# predictions
+arm_pred <- predict(arm_model, n.ahead = length(y_test))
+
+# Convert AR predictions to a data frame
+arm_pred_data <- data.frame(Month = test_data$Month, pred_python = arm_pred$pred)
+range <- range(c(test_data$Python, arm_pred$pred))
+
+# Plot actual vs predicted from AR model
+plot(test_data$Month, test_data$Python, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "# Python Questions", main = "ARIMA(11) Model Predictions", ylim = range)
+lines(arm_pred_data$Month, arm_pred_data$pred_python, col = "red", lwd = 2, lty = 2)
+legend("bottomleft", legend = c("Actual # Python Questions", "ARIMA(11) Predicted Python Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+
+# Mean Absolute Error (MAE)
+y_pred <- arm_pred_data$pred_python
+
+mae <- mean(abs(y_test - y_pred))
+
+# Root Mean Squared Error (RMSE)
+rmse <- sqrt(mean((y_test - y_pred)^2))
+
+cat(sprintf("Mean Absolute Error: %.2f\n", mae))
+cat(sprintf("Root Mean Squared Error: %.2f\n", rmse))
+```
+# ARIMA model for Java Questions
+```{r}
+# extract feature to predict and drop any NAs
+java <- stack_full[, c("Month", "Java")]
+java <- na.omit(java)  
+
+# create lag features
+for (i in 1:10) {
+  java[, paste0('Lag_', i)] <- c(rep(NA, i), head(java$Java, -i))
+}
+java <- na.omit(java)
+
+# Split into training and test sets
+train_size <- round(0.8 * nrow(java))
+train_data <- java[1:train_size,]
+test_data <- java[(train_size + 1):nrow(java),]
+
+# Define y_train and y_test
+y_train <- train_data$Java
+y_test <- test_data$Java
+
+# fit ARIMA model with p = q = 11
+arm_model <- arima(y_train, order = c(11, 0, 11))
+
+# predictions
+arm_pred <- predict(arm_model, n.ahead = length(y_test))
+
+# Convert AR predictions to a data frame
+arm_pred_data <- data.frame(Month = test_data$Month, pred_java = arm_pred$pred)
+range <- range(c(test_data$Java, arm_pred$pred))
+
+# Plot actual vs predicted from AR model
+plot(test_data$Month, test_data$Java, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "# Java Questions", main = "ARIMA(11) Model Predictions", ylim = range)
+lines(arm_pred_data$Month, arm_pred_data$pred_java, col = "red", lwd = 2, lty = 2)
+legend("bottomleft", legend = c("Actual # Java Questions", "ARIMA(11) Predicted Java Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+
+# Mean Absolute Error (MAE)
+y_pred <- arm_pred_data$pred_java
+
+mae <- mean(abs(y_test - y_pred))
+
+# Root Mean Squared Error (RMSE)
+rmse <- sqrt(mean((y_test - y_pred)^2))
+
+cat(sprintf("Mean Absolute Error: %.2f\n", mae))
+cat(sprintf("Root Mean Squared Error: %.2f\n", rmse))
+```
+# ARIMA model for C++ Questions
+```{r}
+# extract feature to predict and drop any NAs
+cplusplus <- stack_full[, c("Month", "C..")]
+cplusplus <- na.omit(cplusplus)  
+
+# create lag features
+for (i in 1:10) {
+  cplusplus[, paste0('Lag_', i)] <- c(rep(NA, i), head(cplusplus$C.., -i))
+}
+cplusplus <- na.omit(cplusplus)
+
+# Split into training and test sets
+train_size <- round(0.8 * nrow(cplusplus))
+train_data <- cplusplus[1:train_size,]
+test_data <- cplusplus[(train_size + 1):nrow(cplusplus),]
+
+# Define y_train and y_test
+y_train <- train_data$C..
+y_test <- test_data$C..
+
+# fit ARIMA model with p = q = 11
+arm_model <- arima(y_train, order = c(11, 0, 11))
+
+# predictions
+arm_pred <- predict(arm_model, n.ahead = length(y_test))
+
+# Convert AR predictions to a data frame
+arm_pred_data <- data.frame(Month = test_data$Month, pred_cplusplus = arm_pred$pred)
+range <- range(c(test_data$C.., arm_pred$pred))
+
+# Plot actual vs predicted from AR model
+plot(test_data$Month, test_data$C.., type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "# C++ Questions", main = "ARIMA(11) Model Predictions", ylim = range)
+lines(arm_pred_data$Month, arm_pred_data$pred_cplusplus, col = "red", lwd = 2, lty = 2)
+legend("bottomleft", legend = c("Actual # C++ Questions", "ARIMA(11) Predicted C++ Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+
+# Mean Absolute Error (MAE)
+y_pred <- arm_pred_data$pred_cplusplus
+
+mae <- mean(abs(y_test - y_pred))
+
+# Root Mean Squared Error (RMSE)
+rmse <- sqrt(mean((y_test - y_pred)^2))
+
+cat(sprintf("Mean Absolute Error: %.2f\n", mae))
+cat(sprintf("Root Mean Squared Error: %.2f\n", rmse))
+```
+
