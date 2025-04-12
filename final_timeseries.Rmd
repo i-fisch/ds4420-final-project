@@ -20,7 +20,7 @@ stack_full <- stack_full %>% arrange(Month)
 
 # create total # of questions column
 stack_full$total <- rowSums(stack_full[, sapply(stack_full, is.numeric)], na.rm = TRUE)
-head(stack_full)
+stack_full
 ```
 ```{r}
 # visualize the time series
@@ -141,9 +141,9 @@ arm_pred_data <- data.frame(Month = test_data$Month, pred_total = arm_pred$pred)
 range <- range(c(test_data$total, arm_pred$pred))
 
 # Plot actual vs predicted from AR model
-plot(test_data$Month, test_data$total, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "Total Questions", main = "ARIMA(11) Model Predictions", ylim = range)
+plot(test_data$Month, test_data$total, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "Total Questions", main = "ARIMA(11, 0, 11) Model Predictions", ylim = range)
 lines(arm_pred_data$Month, arm_pred_data$pred_total, col = "red", lwd = 2, lty = 2)
-legend("bottomleft", legend = c("Actual Total Questions", "ARIMA(11) Predicted Total Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+legend("bottomleft", legend = c("Actual Total Questions", "ARIMA(11, 0, 11) Predicted Total Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
 ```
 ```{r}
 # Mean Absolute Error (MAE)
@@ -205,9 +205,9 @@ arm_pred_data <- data.frame(Month = test_data$Month, pred_python = arm_pred$pred
 range <- range(c(test_data$Python, arm_pred$pred))
 
 # Plot actual vs predicted from AR model
-plot(test_data$Month, test_data$Python, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "# Python Questions", main = "ARIMA(11) Model Predictions", ylim = range)
+plot(test_data$Month, test_data$Python, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "# Python Questions", main = "ARIMA(11, 0, 11) Model Predictions", ylim = range)
 lines(arm_pred_data$Month, arm_pred_data$pred_python, col = "red", lwd = 2, lty = 2)
-legend("bottomleft", legend = c("Actual # Python Questions", "ARIMA(11) Predicted Python Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+legend("bottomleft", legend = c("Actual # Python Questions", "ARIMA(11, 0, 11) Predicted Python Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
 
 # Mean Absolute Error (MAE)
 y_pred <- arm_pred_data$pred_python
@@ -252,9 +252,9 @@ arm_pred_data <- data.frame(Month = test_data$Month, pred_java = arm_pred$pred)
 range <- range(c(test_data$Java, arm_pred$pred))
 
 # Plot actual vs predicted from AR model
-plot(test_data$Month, test_data$Java, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "# Java Questions", main = "ARIMA(11) Model Predictions", ylim = range)
+plot(test_data$Month, test_data$Java, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "# Java Questions", main = "ARIMA(11, 0, 11) Model Predictions", ylim = range)
 lines(arm_pred_data$Month, arm_pred_data$pred_java, col = "red", lwd = 2, lty = 2)
-legend("bottomleft", legend = c("Actual # Java Questions", "ARIMA(11) Predicted Java Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+legend("bottomleft", legend = c("Actual # Java Questions", "ARIMA(11, 0, 11) Predicted Java Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
 
 # Mean Absolute Error (MAE)
 y_pred <- arm_pred_data$pred_java
@@ -299,9 +299,9 @@ arm_pred_data <- data.frame(Month = test_data$Month, pred_cplusplus = arm_pred$p
 range <- range(c(test_data$C.., arm_pred$pred))
 
 # Plot actual vs predicted from AR model
-plot(test_data$Month, test_data$C.., type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "# C++ Questions", main = "ARIMA(11) Model Predictions", ylim = range)
+plot(test_data$Month, test_data$C.., type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "# C++ Questions", main = "ARIMA(11, 0, 11) Model Predictions", ylim = range)
 lines(arm_pred_data$Month, arm_pred_data$pred_cplusplus, col = "red", lwd = 2, lty = 2)
-legend("bottomleft", legend = c("Actual # C++ Questions", "ARIMA(11) Predicted C++ Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+legend("bottomleft", legend = c("Actual # C++ Questions", "ARIMA(11, 0, 11) Predicted C++ Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
 
 # Mean Absolute Error (MAE)
 y_pred <- arm_pred_data$pred_cplusplus
