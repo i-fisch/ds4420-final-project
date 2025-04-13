@@ -14,7 +14,7 @@ library(TTR)
 library(scales)
 
 # load and clean data 
-stack_full <- read.csv('TotalQuestions.csv')
+stack_full <- read.csv('FinalProject/TotalQuestions.csv')
 stack_full$Month <- as.Date(stack_full$Month)
 stack_full <- stack_full %>% arrange(Month)
 
@@ -144,6 +144,26 @@ range <- range(c(test_data$total, arm_pred$pred))
 plot(test_data$Month, test_data$total, type = "l", col = "blue", lwd = 2, xlab = "Date", ylab = "Total Questions", main = "ARIMA(11, 0, 11) Model Predictions", ylim = range)
 lines(arm_pred_data$Month, arm_pred_data$pred_total, col = "red", lwd = 2, lty = 2)
 legend("bottomleft", legend = c("Actual Total Questions", "ARIMA(11, 0, 11) Predicted Total Questions"), col = c("blue", "red"), lty = c(1, 2), bty = "n")
+
+
+```
+```{r}
+# plot both AR and ARIMA together
+plot(test_data$Month, test_data$total, type = "l", col = "blue", lwd = 2,
+     xlab = "Date", ylab = "Total Questions", 
+     main = "Actual vs Predicted Questions (AR and ARIMA Models)",
+     ylim = range(c(test_data$total, pred_data$pred_total, arm_pred_data$pred_total)))
+
+lines(pred_data$Month, pred_data$pred_total, col = "red", lwd = 2, lty = 2)
+
+lines(arm_pred_data$Month, arm_pred_data$pred_total, col = "purple", lwd = 2, lty = 3)
+
+legend("bottomleft", 
+       legend = c("Actual Total Questions", "AR(11) Predicted", "ARIMA(11,0,11) Predicted"),
+       col = c("blue", "red", "purple"), 
+       lty = c(1, 2, 3), 
+       lwd = 2,
+       bty = "n")
 ```
 ```{r}
 # Mean Absolute Error (MAE)
