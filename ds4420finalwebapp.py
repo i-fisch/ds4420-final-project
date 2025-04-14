@@ -8,7 +8,7 @@ st.title('DS4420 Final Project: Chat(GPT) are we cooked?')
 st.subheader('by Isabella Fisch and Caroline Han')
 tab1, tab2, tab3 = st.tabs(["About", "Stack Overflow Data", "Time Series"])
 
-df = pd.read_csv('TotalQuestions.csv')
+df = pd.read_csv('data/TotalQuestions.csv')
 df['Month'] = pd.to_datetime(df['Month'])
 df['All'] = df.sum(axis=1, numeric_only=True)
 df = df.dropna()
